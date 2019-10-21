@@ -135,12 +135,12 @@ namespace RSocket.Transports
 			{
 				while (!token.IsCancellationRequested)
 				{
-#if NETCOREAPP3_0
+#if NETSTANDARD2_1
                     // Do a 0 byte read so that idle connections don't allocate a buffer when waiting for a read
-                    var received = await socket.ReceiveAsync(Memory<byte>.Empty, token);
-					if(received == 0) { continue; }
-					var memory = Back.Output.GetMemory(out var memoryframe, haslength: true);    //RSOCKET Framing
-                    var received = await socket.ReceiveAsync(memory, token);
+                    var received = await socket.ReceiveAsync(Memory<byte>.Empty, SocketFlags.None, token);
+                    //if(received == 0) { continue; }
+                    var memory = Back.Output.GetMemory(out var memoryFrame, haslength: true);    //RSOCKET Framing
+                    received = await socket.ReceiveAsync(memory, SocketFlags.None, token);
 #else
 					var memory = Back.Output.GetMemory(out var memoryframe, haslength: true);    //RSOCKET Framing
 					var isArray = MemoryMarshal.TryGetArray<byte>(memory, out var arraySegment); Debug.Assert(isArray);
@@ -229,12 +229,12 @@ namespace System.Net.Sockets
 {
 	internal static class SocketExtensions
 	{
-		public static ValueTask SendAsync(this Socket socket, ReadOnlySequence<byte> buffer, SocketFlags socketFlags, CancellationToken cancellationToken = default)
+		public static ValueTask<int> SendAsync(this Socket socket, ReadOnlySequence<byte> buffer, SocketFlags socketFlags, CancellationToken cancellationToken = default)
 		{
-#if NETCOREAPP3_0
+#if NETSTANDARD2_1
             if (buffer.IsSingleSegment)
             {
-                return socket.SendAsync(buffer.First, webSocketMessageType, endOfMessage: true, cancellationToken);
+                return socket.SendAsync(buffer.First, socketFlags, cancellationToken);
             }
             else { return SendMultiSegmentAsync(socket, buffer, socketFlags, cancellationToken); }
 #else
@@ -248,9 +248,9 @@ namespace System.Net.Sockets
 #endif
 		}
 
-		static async ValueTask SendMultiSegmentAsync(Socket socket, ReadOnlySequence<byte> buffer, SocketFlags socketFlags, CancellationToken cancellationToken = default)
+		static async ValueTask<int> SendMultiSegmentAsync(Socket socket, ReadOnlySequence<byte> buffer, SocketFlags socketFlags, CancellationToken cancellationToken = default)
 		{
-#if NETCOREAPP3_0
+#if NETSTANDARD2_1
 			var position = buffer.Start;
 			buffer.TryGet(ref position, out var prevSegment);
 			while (buffer.TryGet(ref position, out var segment))
@@ -258,7 +258,7 @@ namespace System.Net.Sockets
 				await socket.SendAsync(prevSegment, socketFlags);
 				prevSegment = segment;
 			}
-			await socket.SendAsync(prevSegment, socketFlags);
+			return await socket.SendAsync(prevSegment, socketFlags);
 #else
 			var position = buffer.Start;
 			buffer.TryGet(ref position, out var prevSegment);

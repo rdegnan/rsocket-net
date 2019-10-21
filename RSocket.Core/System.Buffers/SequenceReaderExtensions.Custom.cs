@@ -34,7 +34,10 @@ namespace System.Buffers
 		public static unsafe bool TryRead(ref this SequenceReader<byte> reader, out string value, byte length, Encoding encoding = default)
 		{
 			var backing = stackalloc byte[length];
-			return reader.TryRead(new Span<byte>(backing, length)) ? Tried(true, out value, (encoding ?? Encoding.ASCII).GetString(backing, length)) : Tried(false, out value, default);
+
+			return reader.TryRead(new Span<byte>(backing, length)) 
+                ? Tried(true, out value, (encoding ?? Encoding.ASCII).GetString(backing, length)) 
+                : Tried(false, out value, default);
 		}
 
 		//TODO DOCS

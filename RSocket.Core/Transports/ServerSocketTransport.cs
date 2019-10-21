@@ -14,7 +14,7 @@ namespace RSocket.Transports
         private Socket _remoteSocket;
 
         public ServerSocketTransport(Socket remoteSocket, PipeOptions outputOptions = null, PipeOptions inputOptions = null)
-            :base(outputOptions, inputOptions)
+            : base(outputOptions, inputOptions)
         {
             _remoteSocket = remoteSocket;
         }

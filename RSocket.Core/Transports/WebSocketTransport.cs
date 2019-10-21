@@ -11,233 +11,233 @@ using System.Buffers;
 
 namespace RSocket.Transports
 {
-	public class WebSocketTransport : IRSocketTransport
-	{
-		private readonly WebSocketOptions Options;
-		private readonly WebSocketsTransport Transport;
-		public Uri Url { get; private set; }
-		private LoggerFactory Logger;
-		internal Task Running { get; private set; } = Task.CompletedTask;
+    public class WebSocketTransport : IRSocketTransport
+    {
+        private readonly WebSocketOptions Options;
+        private readonly WebSocketsTransport Transport;
+        public Uri Url { get; private set; }
+        private LoggerFactory Logger;
+        internal Task Running { get; private set; } = Task.CompletedTask;
 
-		IDuplexPipe Front, Back;
-		public PipeReader Input => Front.Input;
-		public PipeWriter Output => Front.Output;
+        IDuplexPipe Front, Back;
+        public PipeReader Input => Front.Input;
+        public PipeWriter Output => Front.Output;
 
-		public WebSocketTransport(string url, PipeOptions outputoptions = default, PipeOptions inputoptions = default) : this(new Uri(url), outputoptions, inputoptions) { }
-		public WebSocketTransport(Uri url, PipeOptions outputoptions = default, PipeOptions inputoptions = default, WebSocketOptions options = default)
-		{
-			Url = url;
-			Options = options ?? WebSocketsTransport.DefaultWebSocketOptions;
-			Logger = new Microsoft.Extensions.Logging.LoggerFactory(new[] { new Microsoft.Extensions.Logging.Debug.DebugLoggerProvider() });
-			(Front, Back) = DuplexPipe.CreatePair(outputoptions, inputoptions);
-			Transport = new WebSocketsTransport(Options, Back, WebSocketsTransport.HttpConnectionContext.Default, Logger);
-		}
+        public WebSocketTransport(string url, PipeOptions outputoptions = default, PipeOptions inputoptions = default) : this(new Uri(url), outputoptions, inputoptions) { }
+        public WebSocketTransport(Uri url, PipeOptions outputoptions = default, PipeOptions inputoptions = default, WebSocketOptions options = default)
+        {
+            Url = url;
+            Options = options ?? WebSocketsTransport.DefaultWebSocketOptions;
+            Logger = new Microsoft.Extensions.Logging.LoggerFactory(new[] { new Microsoft.Extensions.Logging.Debug.DebugLoggerProvider() });
+            (Front, Back) = DuplexPipe.CreatePair(outputoptions, inputoptions);
+            Transport = new WebSocketsTransport(Options, Back, WebSocketsTransport.HttpConnectionContext.Default, Logger);
+        }
 
-		public Task StartAsync(CancellationToken cancel = default)
-		{
-			Running = Transport.ProcessRequestAsync(new WebSocketsTransport.HttpContext(this), cancel);
-			return Task.CompletedTask;
-		}
+        public Task StartAsync(CancellationToken cancel = default)
+        {
+            Running = Transport.ProcessRequestAsync(new WebSocketsTransport.HttpContext(this), cancel);
+            return Task.CompletedTask;
+        }
 
-		public Task StopAsync() => Task.CompletedTask;		//TODO More graceful shutdown
-
-
-		//This class is based heavily on the SignalR WebSocketsTransport class from the AspNetCore project. It was merged as release/2.2 as of this snapshot.
-		//When designing Pipelines, for some reason, standard adapters for Sockets, WebSockets, etc were not published.
-		//The SignalR team seems to be the driver for Pipelines, so it's expected that this code is the best implementation available.
-		//Future updaters should review their progress here and switch to a standard WebSockets => Pipelines adapter when possible.
-
-		//The verbatim copyright messages are below even though the code has been altered. The license is below as well.
-
-		//Adapters for keeping the SignalR source as close to verbatim as possible. The SignalR code is a little junky here because it takes deeper dependencies than needed - most of this should be extracted in the constructor, but it's saved as a heavy reference only to be consumed once.
-		public interface IHttpTransport { }
-		partial class WebSocketsTransport
-		{
-			static public readonly WebSocketOptions DefaultWebSocketOptions = new WebSocketOptions();
-
-			public enum TransferFormat { Binary = 1, Text = 2, }
-			public class HttpConnectionContext
-			{
-				static public readonly HttpConnectionContext Default = new HttpConnectionContext();
-				public readonly CancellationTokenSource Cancellation = default;
-				public readonly TransferFormat ActiveFormat = TransferFormat.Binary;
-			}
-
-			public class HttpContext              //https://github.com/aspnet/AspNetCore/blob/master/src/Http/Http.Abstractions/src/HttpContext.cs
-			{
-				public readonly CancellationTokenSource Cancellation = default;
-				public WebSocketManager WebSockets { get; }
-
-				public HttpContext(WebSocketTransport transport, CancellationToken cancel = default) { WebSockets = new WebSocketManager(transport, cancel); }
-
-				public class WebSocketManager     //https://github.com/aspnet/AspNetCore/blob/master/src/Http/Http/src/Internal/DefaultWebSocketManager.cs
-				{
-					public WebSocketTransport Transport;
-					public CancellationToken Cancel;
-					public bool IsWebSocketRequest => true;
-					public IList<string> WebSocketRequestedProtocols => null;
-
-					public WebSocketManager(WebSocketTransport transport, CancellationToken cancel = default) { Transport = transport; Cancel = cancel; }
-
-					public async Task<WebSocket> AcceptWebSocketAsync(string subprotocol)     //https://github.com/aspnet/AspNetCore/blob/master/src/Middleware/WebSockets/src/WebSocketMiddleware.cs
-					{
-						//So in the SignalR code, this is where the WebSocketOptions are actually applied. So junky, so overabstracted. This is why the constructors are inverted so short out all of this madness.
-						var socket = new ClientWebSocket();
-						await socket.ConnectAsync(Transport.Url, Cancel);
-						return socket;
-					}
-				}
-			}
-		}
+        public Task StopAsync() => Task.CompletedTask;      //TODO More graceful shutdown
 
 
+        //This class is based heavily on the SignalR WebSocketsTransport class from the AspNetCore project. It was merged as release/2.2 as of this snapshot.
+        //When designing Pipelines, for some reason, standard adapters for Sockets, WebSockets, etc were not published.
+        //The SignalR team seems to be the driver for Pipelines, so it's expected that this code is the best implementation available.
+        //Future updaters should review their progress here and switch to a standard WebSockets => Pipelines adapter when possible.
 
-		#region https://github.com/aspnet/AspNetCore/blob/master/src/SignalR/common/Http.Connections/src/Internal/Transports/WebSocketsTransport.cs
+        //The verbatim copyright messages are below even though the code has been altered. The license is below as well.
 
-		// Copyright (c) .NET Foundation. All rights reserved.
-		// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
+        //Adapters for keeping the SignalR source as close to verbatim as possible. The SignalR code is a little junky here because it takes deeper dependencies than needed - most of this should be extracted in the constructor, but it's saved as a heavy reference only to be consumed once.
+        public interface IHttpTransport { }
+        partial class WebSocketsTransport
+        {
+            static public readonly WebSocketOptions DefaultWebSocketOptions = new WebSocketOptions();
 
-		//using System;
-		//using System.Diagnostics;
-		//using System.IO.Pipelines;
-		//using System.Net.WebSockets;
-		//using System.Runtime.InteropServices;
-		//using System.Threading;
-		//using System.Threading.Tasks;
-		//using Microsoft.AspNetCore.Http;
-		//using Microsoft.AspNetCore.Connections;
-		//using Microsoft.Extensions.Logging;
+            public enum TransferFormat { Binary = 1, Text = 2, }
+            public class HttpConnectionContext
+            {
+                static public readonly HttpConnectionContext Default = new HttpConnectionContext();
+                public readonly CancellationTokenSource Cancellation = default;
+                public readonly TransferFormat ActiveFormat = TransferFormat.Binary;
+            }
 
-		public partial class WebSocketsTransport : IHttpTransport
-		{
-			private readonly WebSocketOptions _options;
-			private readonly ILogger _logger;
-			private readonly IDuplexPipe _application;
-			private readonly HttpConnectionContext _connection;
-			private volatile bool _aborted;
+            public class HttpContext              //https://github.com/aspnet/AspNetCore/blob/master/src/Http/Http.Abstractions/src/HttpContext.cs
+            {
+                public readonly CancellationTokenSource Cancellation = default;
+                public WebSocketManager WebSockets { get; }
 
-			public WebSocketsTransport(WebSocketOptions options, IDuplexPipe application, HttpConnectionContext connection, ILoggerFactory loggerFactory)
-			{
-				if (options == null)
-				{
-					throw new ArgumentNullException(nameof(options));
-				}
+                public HttpContext(WebSocketTransport transport, CancellationToken cancel = default) { WebSockets = new WebSocketManager(transport, cancel); }
 
-				if (application == null)
-				{
-					throw new ArgumentNullException(nameof(application));
-				}
+                public class WebSocketManager     //https://github.com/aspnet/AspNetCore/blob/master/src/Http/Http/src/Internal/DefaultWebSocketManager.cs
+                {
+                    public WebSocketTransport Transport;
+                    public CancellationToken Cancel;
+                    public bool IsWebSocketRequest => true;
+                    public IList<string> WebSocketRequestedProtocols => null;
 
-				if (loggerFactory == null)
-				{
-					throw new ArgumentNullException(nameof(loggerFactory));
-				}
+                    public WebSocketManager(WebSocketTransport transport, CancellationToken cancel = default) { Transport = transport; Cancel = cancel; }
 
-				_options = options;
-				_application = application;
-				_connection = connection;
-				_logger = loggerFactory.CreateLogger<WebSocketsTransport>();
-			}
+                    public async Task<WebSocket> AcceptWebSocketAsync(string subprotocol)     //https://github.com/aspnet/AspNetCore/blob/master/src/Middleware/WebSockets/src/WebSocketMiddleware.cs
+                    {
+                        //So in the SignalR code, this is where the WebSocketOptions are actually applied. So junky, so overabstracted. This is why the constructors are inverted so short out all of this madness.
+                        var socket = new ClientWebSocket();
+                        await socket.ConnectAsync(Transport.Url, Cancel);
+                        return socket;
+                    }
+                }
+            }
+        }
 
-			public async Task ProcessRequestAsync(HttpContext context, CancellationToken token)
-			{
-				Debug.Assert(context.WebSockets.IsWebSocketRequest, "Not a websocket request");
 
-				var subProtocol = _options.SubProtocolSelector?.Invoke(context.WebSockets.WebSocketRequestedProtocols);
 
-				using (var ws = await context.WebSockets.AcceptWebSocketAsync(subProtocol))
-				{
-					Log.SocketOpened(_logger, subProtocol);
+        #region https://github.com/aspnet/AspNetCore/blob/master/src/SignalR/common/Http.Connections/src/Internal/Transports/WebSocketsTransport.cs
 
-					try
-					{
-						await ProcessSocketAsync(ws);
-					}
-					finally
-					{
-						Log.SocketClosed(_logger);
-					}
-				}
-			}
+        // Copyright (c) .NET Foundation. All rights reserved.
+        // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-			public async Task ProcessSocketAsync(WebSocket socket)
-			{
-				// Begin sending and receiving. Receiving must be started first because ExecuteAsync enables SendAsync.
-				var receiving = StartReceiving(socket);
-				var sending = StartSending(socket);
+        //using System;
+        //using System.Diagnostics;
+        //using System.IO.Pipelines;
+        //using System.Net.WebSockets;
+        //using System.Runtime.InteropServices;
+        //using System.Threading;
+        //using System.Threading.Tasks;
+        //using Microsoft.AspNetCore.Http;
+        //using Microsoft.AspNetCore.Connections;
+        //using Microsoft.Extensions.Logging;
 
-				// Wait for send or receive to complete
-				var trigger = await Task.WhenAny(receiving, sending);
+        public partial class WebSocketsTransport : IHttpTransport
+        {
+            private readonly WebSocketOptions _options;
+            private readonly ILogger _logger;
+            private readonly IDuplexPipe _application;
+            private readonly HttpConnectionContext _connection;
+            private volatile bool _aborted;
 
-				if (trigger == receiving)
-				{
-					Log.WaitingForSend(_logger);
+            public WebSocketsTransport(WebSocketOptions options, IDuplexPipe application, HttpConnectionContext connection, ILoggerFactory loggerFactory)
+            {
+                if (options == null)
+                {
+                    throw new ArgumentNullException(nameof(options));
+                }
 
-					// We're waiting for the application to finish and there are 2 things it could be doing
-					// 1. Waiting for application data
-					// 2. Waiting for a websocket send to complete
+                if (application == null)
+                {
+                    throw new ArgumentNullException(nameof(application));
+                }
 
-					// Cancel the application so that ReadAsync yields
-					_application.Input.CancelPendingRead();
+                if (loggerFactory == null)
+                {
+                    throw new ArgumentNullException(nameof(loggerFactory));
+                }
 
-					using (var delayCts = new CancellationTokenSource())
-					{
-						var resultTask = await Task.WhenAny(sending, Task.Delay(_options.CloseTimeout, delayCts.Token));
+                _options = options;
+                _application = application;
+                _connection = connection;
+                _logger = loggerFactory.CreateLogger<WebSocketsTransport>();
+            }
 
-						if (resultTask != sending)
-						{
-							// We timed out so now we're in ungraceful shutdown mode
-							Log.CloseTimedOut(_logger);
+            public async Task ProcessRequestAsync(HttpContext context, CancellationToken token)
+            {
+                Debug.Assert(context.WebSockets.IsWebSocketRequest, "Not a websocket request");
 
-							// Abort the websocket if we're stuck in a pending send to the client
-							_aborted = true;
+                var subProtocol = _options.SubProtocolSelector?.Invoke(context.WebSockets.WebSocketRequestedProtocols);
 
-							socket.Abort();
-						}
-						else
-						{
-							delayCts.Cancel();
-						}
-					}
-				}
-				else
-				{
-					Log.WaitingForClose(_logger);
+                using (var ws = await context.WebSockets.AcceptWebSocketAsync(subProtocol))
+                {
+                    Log.SocketOpened(_logger, subProtocol);
 
-					// We're waiting on the websocket to close and there are 2 things it could be doing
-					// 1. Waiting for websocket data
-					// 2. Waiting on a flush to complete (backpressure being applied)
+                    try
+                    {
+                        await ProcessSocketAsync(ws);
+                    }
+                    finally
+                    {
+                        Log.SocketClosed(_logger);
+                    }
+                }
+            }
 
-					using (var delayCts = new CancellationTokenSource())
-					{
-						var resultTask = await Task.WhenAny(receiving, Task.Delay(_options.CloseTimeout, delayCts.Token));
+            public async Task ProcessSocketAsync(WebSocket socket)
+            {
+                // Begin sending and receiving. Receiving must be started first because ExecuteAsync enables SendAsync.
+                var receiving = StartReceiving(socket);
+                var sending = StartSending(socket);
 
-						if (resultTask != receiving)
-						{
-							// Abort the websocket if we're stuck in a pending receive from the client
-							_aborted = true;
+                // Wait for send or receive to complete
+                var trigger = await Task.WhenAny(receiving, sending);
 
-							socket.Abort();
+                if (trigger == receiving)
+                {
+                    Log.WaitingForSend(_logger);
 
-							// Cancel any pending flush so that we can quit
-							_application.Output.CancelPendingFlush();
-						}
-						else
-						{
-							delayCts.Cancel();
-						}
-					}
-				}
-			}
+                    // We're waiting for the application to finish and there are 2 things it could be doing
+                    // 1. Waiting for application data
+                    // 2. Waiting for a websocket send to complete
 
-			private async Task StartReceiving(WebSocket socket)
-			{
-				var token = _connection.Cancellation?.Token ?? default;
+                    // Cancel the application so that ReadAsync yields
+                    _application.Input.CancelPendingRead();
 
-				try
-				{
-					while (!token.IsCancellationRequested)
-					{
+                    using (var delayCts = new CancellationTokenSource())
+                    {
+                        var resultTask = await Task.WhenAny(sending, Task.Delay(_options.CloseTimeout, delayCts.Token));
+
+                        if (resultTask != sending)
+                        {
+                            // We timed out so now we're in ungraceful shutdown mode
+                            Log.CloseTimedOut(_logger);
+
+                            // Abort the websocket if we're stuck in a pending send to the client
+                            _aborted = true;
+
+                            socket.Abort();
+                        }
+                        else
+                        {
+                            delayCts.Cancel();
+                        }
+                    }
+                }
+                else
+                {
+                    Log.WaitingForClose(_logger);
+
+                    // We're waiting on the websocket to close and there are 2 things it could be doing
+                    // 1. Waiting for websocket data
+                    // 2. Waiting on a flush to complete (backpressure being applied)
+
+                    using (var delayCts = new CancellationTokenSource())
+                    {
+                        var resultTask = await Task.WhenAny(receiving, Task.Delay(_options.CloseTimeout, delayCts.Token));
+
+                        if (resultTask != receiving)
+                        {
+                            // Abort the websocket if we're stuck in a pending receive from the client
+                            _aborted = true;
+
+                            socket.Abort();
+
+                            // Cancel any pending flush so that we can quit
+                            _application.Output.CancelPendingFlush();
+                        }
+                        else
+                        {
+                            delayCts.Cancel();
+                        }
+                    }
+                }
+            }
+
+            private async Task StartReceiving(WebSocket socket)
+            {
+                var token = _connection.Cancellation?.Token ?? default;
+
+                try
+                {
+                    while (!token.IsCancellationRequested)
+                    {
 #if NETCOREAPP3_0
 						// Do a 0 byte read so that idle connections don't allocate a buffer when waiting for a read
 						var result = await socket.ReceiveAsync(Memory<byte>.Empty, token);
@@ -247,292 +247,292 @@ namespace RSocket.Transports
 							return;
 						}
 #endif
-						var memory = _application.Output.GetMemory(out var memoryframe);        //RSOCKET Framing
+                        var memory = _application.Output.GetMemory(out var memoryframe);        //RSOCKET Framing
 
 #if NETCOREAPP3_0
 	                    var receiveResult = await socket.ReceiveAsync(memory, token);
 #else
-						var isArray = MemoryMarshal.TryGetArray<byte>(memory, out var arraySegment);
-						Debug.Assert(isArray);
+                        var isArray = MemoryMarshal.TryGetArray<byte>(memory, out var arraySegment);
+                        Debug.Assert(isArray);
 
-						// Exceptions are handled above where the send and receive tasks are being run.
-						var receiveResult = await socket.ReceiveAsync(arraySegment, token);
+                        // Exceptions are handled above where the send and receive tasks are being run.
+                        var receiveResult = await socket.ReceiveAsync(arraySegment, token);
 #endif
-						// Need to check again for netcoreapp3.0 because a close can happen between a 0-byte read and the actual read
-						if (receiveResult.MessageType == WebSocketMessageType.Close)
-						{
-							return;
-						}
+                        // Need to check again for netcoreapp3.0 because a close can happen between a 0-byte read and the actual read
+                        if (receiveResult.MessageType == WebSocketMessageType.Close)
+                        {
+                            return;
+                        }
 
-						Log.MessageReceived(_logger, receiveResult.MessageType, receiveResult.Count, receiveResult.EndOfMessage);
+                        Log.MessageReceived(_logger, receiveResult.MessageType, receiveResult.Count, receiveResult.EndOfMessage);
 
-						_application.Output.Advance(receiveResult.Count, receiveResult.EndOfMessage, memoryframe);      //RSOCKET Framing
+                        _application.Output.Advance(receiveResult.Count, receiveResult.EndOfMessage, memoryframe);      //RSOCKET Framing
 
-						var flushResult = await _application.Output.FlushAsync();
+                        var flushResult = await _application.Output.FlushAsync();
 
-						// We canceled in the middle of applying back pressure
-						// or if the consumer is done
-						if (flushResult.IsCanceled || flushResult.IsCompleted)
-						{
-							break;
-						}
-					}
-				}
-				catch (WebSocketException ex) when (ex.WebSocketErrorCode == WebSocketError.ConnectionClosedPrematurely)
-				{
-					// Client has closed the WebSocket connection without completing the close handshake
-					Log.ClosedPrematurely(_logger, ex);
-				}
-				catch (OperationCanceledException)
-				{
-					// Ignore aborts, don't treat them like transport errors
-				}
-				catch (Exception ex)
-				{
-					if (!_aborted && !token.IsCancellationRequested)
-					{
-						_application.Output.Complete(ex);
+                        // We canceled in the middle of applying back pressure
+                        // or if the consumer is done
+                        if (flushResult.IsCanceled || flushResult.IsCompleted)
+                        {
+                            break;
+                        }
+                    }
+                }
+                catch (WebSocketException ex) when (ex.WebSocketErrorCode == WebSocketError.ConnectionClosedPrematurely)
+                {
+                    // Client has closed the WebSocket connection without completing the close handshake
+                    Log.ClosedPrematurely(_logger, ex);
+                }
+                catch (OperationCanceledException)
+                {
+                    // Ignore aborts, don't treat them like transport errors
+                }
+                catch (Exception ex)
+                {
+                    if (!_aborted && !token.IsCancellationRequested)
+                    {
+                        _application.Output.Complete(ex);
 
-						// We re-throw here so we can communicate that there was an error when sending
-						// the close frame
-						throw;
-					}
-				}
-				finally
-				{
-					// We're done writing
-					_application.Output.Complete();
-				}
-			}
+                        // We re-throw here so we can communicate that there was an error when sending
+                        // the close frame
+                        throw;
+                    }
+                }
+                finally
+                {
+                    // We're done writing
+                    _application.Output.Complete();
+                }
+            }
 
-			private async Task StartSending(WebSocket socket)
-			{
-				Exception error = null;
+            private async Task StartSending(WebSocket socket)
+            {
+                Exception error = null;
 
-				try
-				{
-					while (true)
-					{
-						var result = await _application.Input.ReadAsync();
-						var buffer = result.Buffer;
-						var consumed = buffer.Start;        //RSOCKET Framing
-						// Get a frame from the application
+                try
+                {
+                    while (true)
+                    {
+                        var result = await _application.Input.ReadAsync();
+                        var buffer = result.Buffer;
+                        var consumed = buffer.Start;        //RSOCKET Framing
+                                                            // Get a frame from the application
 
-						try
-						{
-							if (result.IsCanceled)
-							{
-								break;
-							}
+                        try
+                        {
+                            if (result.IsCanceled)
+                            {
+                                break;
+                            }
 
-							if (!buffer.IsEmpty)
-							{
-								try
-								{
-									Log.SendPayload(_logger, buffer.Length);
+                            if (!buffer.IsEmpty)
+                            {
+                                try
+                                {
+                                    Log.SendPayload(_logger, buffer.Length);
 
-									var webSocketMessageType = (_connection.ActiveFormat == TransferFormat.Binary
-										? WebSocketMessageType.Binary
-										: WebSocketMessageType.Text);
+                                    var webSocketMessageType = (_connection.ActiveFormat == TransferFormat.Binary
+                                        ? WebSocketMessageType.Binary
+                                        : WebSocketMessageType.Text);
 
-									if (WebSocketCanSend(socket))
-									{
-										consumed = await socket.SendAsync(buffer, buffer.Start, webSocketMessageType);      //RSOCKET Framing
-									}
-									else
-									{
-										break;
-									}
-								}
-								catch (Exception ex)
-								{
-									if (!_aborted)
-									{
-										Log.ErrorWritingFrame(_logger, ex);
-									}
-									break;
-								}
-							}
-							else if (result.IsCompleted)
-							{
-								break;
-							}
-						}
-						finally
-						{
-							_application.Input.AdvanceTo(consumed, buffer.End);		//RSOCKET Framing
-						}
-					}
-				}
-				catch (Exception ex)
-				{
-					error = ex;
-				}
-				finally
-				{
-					// Send the close frame before calling into user code
-					if (WebSocketCanSend(socket))
-					{
-						// We're done sending, send the close frame to the client if the websocket is still open
-						await socket.CloseOutputAsync(error != null ? WebSocketCloseStatus.InternalServerError : WebSocketCloseStatus.NormalClosure, "", CancellationToken.None);
-					}
+                                    if (WebSocketCanSend(socket))
+                                    {
+                                        consumed = await socket.SendAsync(buffer, buffer.Start, webSocketMessageType);      //RSOCKET Framing
+                                    }
+                                    else
+                                    {
+                                        break;
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    if (!_aborted)
+                                    {
+                                        Log.ErrorWritingFrame(_logger, ex);
+                                    }
+                                    break;
+                                }
+                            }
+                            else if (result.IsCompleted)
+                            {
+                                break;
+                            }
+                        }
+                        finally
+                        {
+                            _application.Input.AdvanceTo(consumed, buffer.End);     //RSOCKET Framing
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    error = ex;
+                }
+                finally
+                {
+                    // Send the close frame before calling into user code
+                    if (WebSocketCanSend(socket))
+                    {
+                        // We're done sending, send the close frame to the client if the websocket is still open
+                        await socket.CloseOutputAsync(error != null ? WebSocketCloseStatus.InternalServerError : WebSocketCloseStatus.NormalClosure, "", CancellationToken.None);
+                    }
 
-					_application.Input.Complete();
-				}
+                    _application.Input.Complete();
+                }
 
-			}
+            }
 
-			private static bool WebSocketCanSend(WebSocket ws)
-			{
-				return !(ws.State == WebSocketState.Aborted ||
-					   ws.State == WebSocketState.Closed ||
-					   ws.State == WebSocketState.CloseSent);
-			}
-		}
-		#endregion
+            private static bool WebSocketCanSend(WebSocket ws)
+            {
+                return !(ws.State == WebSocketState.Aborted ||
+                       ws.State == WebSocketState.Closed ||
+                       ws.State == WebSocketState.CloseSent);
+            }
+        }
+        #endregion
 
-		#region https://github.com/aspnet/AspNetCore/blob/master/src/SignalR/common/Http.Connections/src/Internal/Transports/WebSocketsTransport.Log.cs
-		// Copyright (c) .NET Foundation. All rights reserved.
-		// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
+        #region https://github.com/aspnet/AspNetCore/blob/master/src/SignalR/common/Http.Connections/src/Internal/Transports/WebSocketsTransport.Log.cs
+        // Copyright (c) .NET Foundation. All rights reserved.
+        // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-		public partial class WebSocketsTransport
-		{
-			private static class Log
-			{
-				private static readonly Action<ILogger, string, Exception> _socketOpened =
-					LoggerMessage.Define<string>(LogLevel.Debug, new EventId(1, "SocketOpened"), "Socket opened using Sub-Protocol: '{SubProtocol}'.");
+        public partial class WebSocketsTransport
+        {
+            private static class Log
+            {
+                private static readonly Action<ILogger, string, Exception> _socketOpened =
+                    LoggerMessage.Define<string>(LogLevel.Debug, new EventId(1, "SocketOpened"), "Socket opened using Sub-Protocol: '{SubProtocol}'.");
 
-				private static readonly Action<ILogger, Exception> _socketClosed =
-					LoggerMessage.Define(LogLevel.Debug, new EventId(2, "SocketClosed"), "Socket closed.");
+                private static readonly Action<ILogger, Exception> _socketClosed =
+                    LoggerMessage.Define(LogLevel.Debug, new EventId(2, "SocketClosed"), "Socket closed.");
 
-				private static readonly Action<ILogger, WebSocketCloseStatus?, string, Exception> _clientClosed =
-					LoggerMessage.Define<WebSocketCloseStatus?, string>(LogLevel.Debug, new EventId(3, "ClientClosed"), "Client closed connection with status code '{Status}' ({Description}). Signaling end-of-input to application.");
+                private static readonly Action<ILogger, WebSocketCloseStatus?, string, Exception> _clientClosed =
+                    LoggerMessage.Define<WebSocketCloseStatus?, string>(LogLevel.Debug, new EventId(3, "ClientClosed"), "Client closed connection with status code '{Status}' ({Description}). Signaling end-of-input to application.");
 
-				private static readonly Action<ILogger, Exception> _waitingForSend =
-					LoggerMessage.Define(LogLevel.Debug, new EventId(4, "WaitingForSend"), "Waiting for the application to finish sending data.");
+                private static readonly Action<ILogger, Exception> _waitingForSend =
+                    LoggerMessage.Define(LogLevel.Debug, new EventId(4, "WaitingForSend"), "Waiting for the application to finish sending data.");
 
-				private static readonly Action<ILogger, Exception> _failedSending =
-					LoggerMessage.Define(LogLevel.Debug, new EventId(5, "FailedSending"), "Application failed during sending. Sending InternalServerError close frame.");
+                private static readonly Action<ILogger, Exception> _failedSending =
+                    LoggerMessage.Define(LogLevel.Debug, new EventId(5, "FailedSending"), "Application failed during sending. Sending InternalServerError close frame.");
 
-				private static readonly Action<ILogger, Exception> _finishedSending =
-					LoggerMessage.Define(LogLevel.Debug, new EventId(6, "FinishedSending"), "Application finished sending. Sending close frame.");
+                private static readonly Action<ILogger, Exception> _finishedSending =
+                    LoggerMessage.Define(LogLevel.Debug, new EventId(6, "FinishedSending"), "Application finished sending. Sending close frame.");
 
-				private static readonly Action<ILogger, Exception> _waitingForClose =
-					LoggerMessage.Define(LogLevel.Debug, new EventId(7, "WaitingForClose"), "Waiting for the client to close the socket.");
+                private static readonly Action<ILogger, Exception> _waitingForClose =
+                    LoggerMessage.Define(LogLevel.Debug, new EventId(7, "WaitingForClose"), "Waiting for the client to close the socket.");
 
-				private static readonly Action<ILogger, Exception> _closeTimedOut =
-					LoggerMessage.Define(LogLevel.Debug, new EventId(8, "CloseTimedOut"), "Timed out waiting for client to send the close frame, aborting the connection.");
+                private static readonly Action<ILogger, Exception> _closeTimedOut =
+                    LoggerMessage.Define(LogLevel.Debug, new EventId(8, "CloseTimedOut"), "Timed out waiting for client to send the close frame, aborting the connection.");
 
-				private static readonly Action<ILogger, WebSocketMessageType, int, bool, Exception> _messageReceived =
-					LoggerMessage.Define<WebSocketMessageType, int, bool>(LogLevel.Trace, new EventId(9, "MessageReceived"), "Message received. Type: {MessageType}, size: {Size}, EndOfMessage: {EndOfMessage}.");
+                private static readonly Action<ILogger, WebSocketMessageType, int, bool, Exception> _messageReceived =
+                    LoggerMessage.Define<WebSocketMessageType, int, bool>(LogLevel.Trace, new EventId(9, "MessageReceived"), "Message received. Type: {MessageType}, size: {Size}, EndOfMessage: {EndOfMessage}.");
 
-				private static readonly Action<ILogger, int, Exception> _messageToApplication =
-					LoggerMessage.Define<int>(LogLevel.Trace, new EventId(10, "MessageToApplication"), "Passing message to application. Payload size: {Size}.");
+                private static readonly Action<ILogger, int, Exception> _messageToApplication =
+                    LoggerMessage.Define<int>(LogLevel.Trace, new EventId(10, "MessageToApplication"), "Passing message to application. Payload size: {Size}.");
 
-				private static readonly Action<ILogger, long, Exception> _sendPayload =
-					LoggerMessage.Define<long>(LogLevel.Trace, new EventId(11, "SendPayload"), "Sending payload: {Size} bytes.");
+                private static readonly Action<ILogger, long, Exception> _sendPayload =
+                    LoggerMessage.Define<long>(LogLevel.Trace, new EventId(11, "SendPayload"), "Sending payload: {Size} bytes.");
 
-				private static readonly Action<ILogger, Exception> _errorWritingFrame =
-					LoggerMessage.Define(LogLevel.Error, new EventId(12, "ErrorWritingFrame"), "Error writing frame.");
+                private static readonly Action<ILogger, Exception> _errorWritingFrame =
+                    LoggerMessage.Define(LogLevel.Error, new EventId(12, "ErrorWritingFrame"), "Error writing frame.");
 
-				private static readonly Action<ILogger, Exception> _sendFailed =
-					LoggerMessage.Define(LogLevel.Error, new EventId(13, "SendFailed"), "Socket failed to send.");
+                private static readonly Action<ILogger, Exception> _sendFailed =
+                    LoggerMessage.Define(LogLevel.Error, new EventId(13, "SendFailed"), "Socket failed to send.");
 
-				private static readonly Action<ILogger, Exception> _closedPrematurely =
-					LoggerMessage.Define(LogLevel.Debug, new EventId(14, "ClosedPrematurely"), "Socket connection closed prematurely.");
+                private static readonly Action<ILogger, Exception> _closedPrematurely =
+                    LoggerMessage.Define(LogLevel.Debug, new EventId(14, "ClosedPrematurely"), "Socket connection closed prematurely.");
 
-				public static void SocketOpened(ILogger logger, string subProtocol)
-				{
-					_socketOpened(logger, subProtocol, null);
-				}
+                public static void SocketOpened(ILogger logger, string subProtocol)
+                {
+                    _socketOpened(logger, subProtocol, null);
+                }
 
-				public static void SocketClosed(ILogger logger)
-				{
-					_socketClosed(logger, null);
-				}
+                public static void SocketClosed(ILogger logger)
+                {
+                    _socketClosed(logger, null);
+                }
 
-				public static void ClientClosed(ILogger logger, WebSocketCloseStatus? closeStatus, string closeDescription)
-				{
-					_clientClosed(logger, closeStatus, closeDescription, null);
-				}
+                public static void ClientClosed(ILogger logger, WebSocketCloseStatus? closeStatus, string closeDescription)
+                {
+                    _clientClosed(logger, closeStatus, closeDescription, null);
+                }
 
-				public static void WaitingForSend(ILogger logger)
-				{
-					_waitingForSend(logger, null);
-				}
+                public static void WaitingForSend(ILogger logger)
+                {
+                    _waitingForSend(logger, null);
+                }
 
-				public static void FailedSending(ILogger logger)
-				{
-					_failedSending(logger, null);
-				}
+                public static void FailedSending(ILogger logger)
+                {
+                    _failedSending(logger, null);
+                }
 
-				public static void FinishedSending(ILogger logger)
-				{
-					_finishedSending(logger, null);
-				}
+                public static void FinishedSending(ILogger logger)
+                {
+                    _finishedSending(logger, null);
+                }
 
-				public static void WaitingForClose(ILogger logger)
-				{
-					_waitingForClose(logger, null);
-				}
+                public static void WaitingForClose(ILogger logger)
+                {
+                    _waitingForClose(logger, null);
+                }
 
-				public static void CloseTimedOut(ILogger logger)
-				{
-					_closeTimedOut(logger, null);
-				}
+                public static void CloseTimedOut(ILogger logger)
+                {
+                    _closeTimedOut(logger, null);
+                }
 
-				public static void MessageReceived(ILogger logger, WebSocketMessageType type, int size, bool endOfMessage)
-				{
-					_messageReceived(logger, type, size, endOfMessage, null);
-				}
+                public static void MessageReceived(ILogger logger, WebSocketMessageType type, int size, bool endOfMessage)
+                {
+                    _messageReceived(logger, type, size, endOfMessage, null);
+                }
 
-				public static void MessageToApplication(ILogger logger, int size)
-				{
-					_messageToApplication(logger, size, null);
-				}
+                public static void MessageToApplication(ILogger logger, int size)
+                {
+                    _messageToApplication(logger, size, null);
+                }
 
-				public static void SendPayload(ILogger logger, long size)
-				{
-					_sendPayload(logger, size, null);
-				}
+                public static void SendPayload(ILogger logger, long size)
+                {
+                    _sendPayload(logger, size, null);
+                }
 
-				public static void ErrorWritingFrame(ILogger logger, Exception ex)
-				{
-					_errorWritingFrame(logger, ex);
-				}
+                public static void ErrorWritingFrame(ILogger logger, Exception ex)
+                {
+                    _errorWritingFrame(logger, ex);
+                }
 
-				public static void SendFailed(ILogger logger, Exception ex)
-				{
-					_sendFailed(logger, ex);
-				}
+                public static void SendFailed(ILogger logger, Exception ex)
+                {
+                    _sendFailed(logger, ex);
+                }
 
-				public static void ClosedPrematurely(ILogger logger, Exception ex)
-				{
-					_closedPrematurely(logger, ex);
-				}
-			}
-		}
-		#endregion
-	}
-	#region https://github.com/aspnet/AspNetCore/blob/master/src/SignalR/common/Http.Connections/src/WebSocketOptions.cs
-	public class WebSocketOptions
-	{
-		public TimeSpan CloseTimeout { get; set; } = TimeSpan.FromSeconds(5);
+                public static void ClosedPrematurely(ILogger logger, Exception ex)
+                {
+                    _closedPrematurely(logger, ex);
+                }
+            }
+        }
+        #endregion
+    }
+    #region https://github.com/aspnet/AspNetCore/blob/master/src/SignalR/common/Http.Connections/src/WebSocketOptions.cs
+    public class WebSocketOptions
+    {
+        public TimeSpan CloseTimeout { get; set; } = TimeSpan.FromSeconds(5);
 
-		/// <summary>
-		/// Gets or sets a delegate that will be called when a new WebSocket is established to select the value
-		/// for the 'Sec-WebSocket-Protocol' response header. The delegate will be called with a list of the protocols provided
-		/// by the client in the 'Sec-WebSocket-Protocol' request header.
-		/// </summary>
-		/// <remarks>
-		/// See RFC 6455 section 1.3 for more details on the WebSocket handshake: https://tools.ietf.org/html/rfc6455#section-1.3
-		/// </remarks>
-		// WebSocketManager's list of sub protocols is an IList:
-		// https://github.com/aspnet/HttpAbstractions/blob/a6bdb9b1ec6ed99978a508e71a7f131be7e4d9fb/src/Microsoft.AspNetCore.Http.Abstractions/WebSocketManager.cs#L23
-		// Unfortunately, IList<T> does not implement IReadOnlyList<T> :(
-		public Func<IList<string>, string> SubProtocolSelector { get; set; }
-	}
-	#endregion
+        /// <summary>
+        /// Gets or sets a delegate that will be called when a new WebSocket is established to select the value
+        /// for the 'Sec-WebSocket-Protocol' response header. The delegate will be called with a list of the protocols provided
+        /// by the client in the 'Sec-WebSocket-Protocol' request header.
+        /// </summary>
+        /// <remarks>
+        /// See RFC 6455 section 1.3 for more details on the WebSocket handshake: https://tools.ietf.org/html/rfc6455#section-1.3
+        /// </remarks>
+        // WebSocketManager's list of sub protocols is an IList:
+        // https://github.com/aspnet/HttpAbstractions/blob/a6bdb9b1ec6ed99978a508e71a7f131be7e4d9fb/src/Microsoft.AspNetCore.Http.Abstractions/WebSocketManager.cs#L23
+        // Unfortunately, IList<T> does not implement IReadOnlyList<T> :(
+        public Func<IList<string>, string> SubProtocolSelector { get; set; }
+    }
+    #endregion
 }
 
 //namespace RSocket.Transports
@@ -559,10 +559,10 @@ namespace RSocket.Transports
 
 namespace System.Net.WebSockets
 {
-	internal static class WebSocketExtensions
-	{
-		public static ValueTask SendAsync(this WebSocket webSocket, ReadOnlySequence<byte> buffer, WebSocketMessageType webSocketMessageType, CancellationToken cancellationToken = default)
-		{
+    internal static class WebSocketExtensions
+    {
+        public static ValueTask SendAsync(this WebSocket webSocket, ReadOnlySequence<byte> buffer, WebSocketMessageType webSocketMessageType, CancellationToken cancellationToken = default)
+        {
 #if NETCOREAPP3_0
             if (buffer.IsSingleSegment)
             {
@@ -573,47 +573,47 @@ namespace System.Net.WebSockets
                 return SendMultiSegmentAsync(webSocket, buffer, webSocketMessageType, cancellationToken);
             }
 #else
-			if (buffer.IsSingleSegment)
-			{
-				var isArray = MemoryMarshal.TryGetArray(buffer.First, out var segment);
-				Debug.Assert(isArray);
-				return new ValueTask(webSocket.SendAsync(segment, webSocketMessageType, endOfMessage: true, cancellationToken));
-			}
-			else
-			{
-				return SendMultiSegmentAsync(webSocket, buffer, webSocketMessageType, cancellationToken);
-			}
+            if (buffer.IsSingleSegment)
+            {
+                var isArray = MemoryMarshal.TryGetArray(buffer.First, out var segment);
+                Debug.Assert(isArray);
+                return new ValueTask(webSocket.SendAsync(segment, webSocketMessageType, endOfMessage: true, cancellationToken));
+            }
+            else
+            {
+                return SendMultiSegmentAsync(webSocket, buffer, webSocketMessageType, cancellationToken);
+            }
 #endif
-		}
+        }
 
-		private static async ValueTask SendMultiSegmentAsync(WebSocket webSocket, ReadOnlySequence<byte> buffer, WebSocketMessageType webSocketMessageType, CancellationToken cancellationToken = default)
-		{
-			var position = buffer.Start;
-			// Get a segment before the loop so we can be one segment behind while writing
-			// This allows us to do a non-zero byte write for the endOfMessage = true send
-			buffer.TryGet(ref position, out var prevSegment);
-			while (buffer.TryGet(ref position, out var segment))
-			{
+        private static async ValueTask SendMultiSegmentAsync(WebSocket webSocket, ReadOnlySequence<byte> buffer, WebSocketMessageType webSocketMessageType, CancellationToken cancellationToken = default)
+        {
+            var position = buffer.Start;
+            // Get a segment before the loop so we can be one segment behind while writing
+            // This allows us to do a non-zero byte write for the endOfMessage = true send
+            buffer.TryGet(ref position, out var prevSegment);
+            while (buffer.TryGet(ref position, out var segment))
+            {
 #if NETCOREAPP3_0
                 await webSocket.SendAsync(prevSegment, webSocketMessageType, endOfMessage: false, cancellationToken);
 #else
-				var isArray = MemoryMarshal.TryGetArray(prevSegment, out var arraySegment);
-				Debug.Assert(isArray);
-				await webSocket.SendAsync(arraySegment, webSocketMessageType, endOfMessage: false, cancellationToken);
+                var isArray = MemoryMarshal.TryGetArray(prevSegment, out var arraySegment);
+                Debug.Assert(isArray);
+                await webSocket.SendAsync(arraySegment, webSocketMessageType, endOfMessage: false, cancellationToken);
 #endif
-				prevSegment = segment;
-			}
+                prevSegment = segment;
+            }
 
-			// End of message frame
+            // End of message frame
 #if NETCOREAPP3_0
             await webSocket.SendAsync(prevSegment, webSocketMessageType, endOfMessage: true, cancellationToken);
 #else
-			var isArrayEnd = MemoryMarshal.TryGetArray(prevSegment, out var arraySegmentEnd);
-			Debug.Assert(isArrayEnd);
-			await webSocket.SendAsync(arraySegmentEnd, webSocketMessageType, endOfMessage: true, cancellationToken);
+            var isArrayEnd = MemoryMarshal.TryGetArray(prevSegment, out var arraySegmentEnd);
+            Debug.Assert(isArrayEnd);
+            await webSocket.SendAsync(arraySegmentEnd, webSocketMessageType, endOfMessage: true, cancellationToken);
 #endif
-		}
-	}
+        }
+    }
 }
 #endregion
 

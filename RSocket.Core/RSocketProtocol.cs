@@ -202,14 +202,14 @@ namespace RSocket
                     writer.Write(frame.Metadata);
                 }
                 writer.Write(frame.Data);
-                writer.Flush(); 
+                writer.Flush();
 
                 BufferWriter.Return(writer);
             }
 
             public Task WriteFlush(PipeWriter pipe, RSocketFrame frame, CancellationToken cancel = default)
             {
-                Write(pipe, frame); 
+                Write(pipe, frame);
                 return Flush(pipe, cancel);
             }
 
@@ -245,7 +245,7 @@ namespace RSocket
             public RequestStream(in Header header, ref SequenceReader<byte> reader)
             {
                 Header = header;
-                reader.TryReadBigEndian(out int initialRequest); 
+                reader.TryReadBigEndian(out int initialRequest);
                 InitialRequest = initialRequest;
                 TryReadRemaining(header, InnerLength, ref reader, out MetadataLength, out DataLength);
             }
@@ -265,8 +265,8 @@ namespace RSocket
             }
 
             public void Write(PipeWriter pipe, RSocketFrame frame)
-			{
-				var writer = BufferWriter.Get(pipe);
+            {
+                var writer = BufferWriter.Get(pipe);
 
                 Header.Write(writer, Length);
                 writer.WriteInt32BigEndian(InitialRequest);
@@ -279,8 +279,8 @@ namespace RSocket
 
                 writer.Write(frame.Data);
                 writer.Flush();
-				BufferWriter.Return(writer);
-			}
+                BufferWriter.Return(writer);
+            }
 
             public ReadOnlySequence<byte> ReadMetadata(in SequenceReader<byte> reader) => reader.Sequence.Slice(reader.Position, MetadataLength);
             public ReadOnlySequence<byte> ReadData(in SequenceReader<byte> reader) => reader.Sequence.Slice(reader.Sequence.GetPosition(MetadataLength, reader.Position), DataLength);
@@ -320,15 +320,15 @@ namespace RSocket
                 else return true;
             }
 
-			public void Write(PipeWriter pipe, RSocketFrame frame)
-			{
-				var writer = BufferWriter.Get(pipe);
-				Write(writer, frame);
-				writer.Flush();
-				BufferWriter.Return(writer);
-			}
+            public void Write(PipeWriter pipe, RSocketFrame frame)
+            {
+                var writer = BufferWriter.Get(pipe);
+                Write(writer, frame);
+                writer.Flush();
+                BufferWriter.Return(writer);
+            }
 
-			public Task WriteFlush(PipeWriter pipe, RSocketFrame frame , CancellationToken cancel = default) { Write(pipe, frame); return Flush(pipe, cancel); }
+            public Task WriteFlush(PipeWriter pipe, RSocketFrame frame, CancellationToken cancel = default) { Write(pipe, frame); return Flush(pipe, cancel); }
 
             int Write(BufferWriter writer, RSocketFrame frame)
             {
@@ -381,14 +381,14 @@ namespace RSocket
                 var writer = BufferWriter.Get(pipe);
 
                 Header.Write(writer, Length);
-                if (HasMetadata) 
-                { 
-                    writer.WriteInt24BigEndian(MetadataLength); 
-                    writer.Write(frame.Metadata); 
+                if (HasMetadata)
+                {
+                    writer.WriteInt24BigEndian(MetadataLength);
+                    writer.Write(frame.Metadata);
                 }
                 writer.Write(frame.Data);
 
-                writer.Flush(); 
+                writer.Flush();
                 BufferWriter.Return(writer);
             }
 

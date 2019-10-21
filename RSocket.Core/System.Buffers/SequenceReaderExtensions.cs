@@ -31,10 +31,10 @@ namespace System.Buffers
                 return TryReadMultisegment(ref reader, out value);
 
 #if NETSTANDARD2_1
-			value = MemoryMarshal.Read<T>(span);        //FROM https://github.com/dotnet/corefxlab/blob/138c21ab030710c4d9e31d6fab7e928215e3ecc5/src/System.Buffers.ReaderWriter/System/Buffers/Reader/BufferReader_binary.cs#L27
+            value = MemoryMarshal.Read<T>(span);        //FROM https://github.com/dotnet/corefxlab/blob/138c21ab030710c4d9e31d6fab7e928215e3ecc5/src/System.Buffers.ReaderWriter/System/Buffers/Reader/BufferReader_binary.cs#L27
 #else
-            //This was implemented in the mainline code for performance. Discussion here: https://github.com/dotnet/corefxlab/pull/2537
-            value = Unsafe.ReadUnaligned<T>(ref MemoryMarshal.GetReference(span));
+			//This was implemented in the mainline code for performance. Discussion here: https://github.com/dotnet/corefxlab/pull/2537
+			value = Unsafe.ReadUnaligned<T>(ref MemoryMarshal.GetReference(span));
 #endif
             reader.Advance(sizeof(T));
             return true;
@@ -55,19 +55,19 @@ namespace System.Buffers
             }
 
 #if NETSTANDARD2_1
-			value = MemoryMarshal.Read<T>(tempSpan);	//FROM https://github.com/dotnet/corefxlab/blob/138c21ab030710c4d9e31d6fab7e928215e3ecc5/src/System.Buffers.ReaderWriter/System/Buffers/Reader/BufferReader_binary.cs#L46
+            value = MemoryMarshal.Read<T>(tempSpan);    //FROM https://github.com/dotnet/corefxlab/blob/138c21ab030710c4d9e31d6fab7e928215e3ecc5/src/System.Buffers.ReaderWriter/System/Buffers/Reader/BufferReader_binary.cs#L46
 #else
-            value = Unsafe.ReadUnaligned<T>(ref MemoryMarshal.GetReference(tempSpan));
+			value = Unsafe.ReadUnaligned<T>(ref MemoryMarshal.GetReference(tempSpan));
 #endif
             reader.Advance(sizeof(T));
             return true;
         }
 
         /// <summary>
-		/// Reads an <see cref="Int16"/> as big endian.
-		/// </summary>
-		/// <returns>False if there wasn't enough data for an <see cref="Int16"/>.</returns>
-		public static bool TryReadBigEndian(ref this SequenceReader<byte> reader, out ushort value)
+        /// Reads an <see cref="Int16"/> as big endian.
+        /// </summary>
+        /// <returns>False if there wasn't enough data for an <see cref="Int16"/>.</returns>
+        public static bool TryReadBigEndian(ref this SequenceReader<byte> reader, out ushort value)
         {
             if (!BitConverter.IsLittleEndian)
             {

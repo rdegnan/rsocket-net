@@ -47,14 +47,15 @@ namespace RSocket
                     }
 
                     pipereader.AdvanceTo(buffer.Start, buffer.End);
-                    //TODO UNIT TEST- this should work now too!!! Need to evaluate if there is more than one packet in the pipe including edges like part of the length bytes are there but not all.
+                    // TODO UNIT TEST- this should work now too!!! Need to evaluate if there is more than one packet in the pipe 
+                    // including edges like part of the length bytes are there but not all.
                 }
             }
             finally
             {
                 pipereader.Complete();
             }
-            
+
             //This is the non-async portion of the handler. SequenceReader<T> and the other stack-allocated items cannot be used in an async context.
             Task Process(int framelength, in ReadOnlySequence<byte> sequence)
             {

@@ -37,6 +37,28 @@ namespace RSocket
         static public void MessageFrameWrite(int length, bool isEndOfMessage, Span<byte> target) { target[2] = (byte)((length >> 8 * 0) & 0xFF); target[1] = (byte)((length >> 8 * 1) & 0xFF); target[0] = (byte)((length >> 8 * 2) & 0xFF); }
         static public (int Length, bool IsEndOfMessage) MessageFramePeek(ReadOnlySequence<byte> sequence) { var reader = new SequenceReader<byte>(sequence); return reader.TryRead(out byte b1) && reader.TryRead(out byte b2) && reader.TryRead(out byte b3) ? ((b1 << 8 * 2) | (b2 << 8 * 1) | (b3 << 8 * 0), true) : (0, false); }
 
+        static public bool TryParseMessage(ref ReadOnlySequence<byte> buffer, out int frameLength, out ReadOnlySequence<byte> payload)
+        {
+            // Due to the nature of Pipelines as simple binary pipes, all Transport adapters assemble a 
+            // standard message frame whether or not the underlying transport signals length, EoM, etc.
+            var (length, _) = MessageFramePeek(buffer);
+
+            if (buffer.Length < length + MESSAGEFRAMESIZE)
+            {
+                payload = default;
+                frameLength = 0;
+                return false;
+            }
+
+            frameLength = length;
+            payload = buffer.Slice(MESSAGEFRAMESIZE, length);
+
+            // Trim to the unparsed data
+            buffer = buffer.Slice(payload.End);
+
+            return true;
+        }
+
         static Task Flush(PipeWriter pipe, CancellationToken cancel) { var result = pipe.FlushAsync(cancel); return result.IsCompleted ? Task.CompletedTask : result.AsTask(); }
 
         static bool TryReadRemaining(in Header header, int innerlength, ref SequenceReader<byte> reader, out int metadatalength)
@@ -709,7 +731,7 @@ namespace RSocket
                 ResumeToken = resumeToken;      //TODO Two of these?
                 MetadataLength = (int)metadata.Length;
                 DataLength = (int)data.Length;
-                HasResume = resumeToken != default && resumeToken.Length > 0;
+                HasResume = resumeToken != null && resumeToken.Length > 0;
             }
 
             public Setup(in Header header, ref SequenceReader<byte> reader)

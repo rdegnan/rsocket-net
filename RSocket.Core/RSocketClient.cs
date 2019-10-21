@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-using IRSocketStream = System.IObserver<(System.Buffers.ReadOnlySequence<byte> metadata, System.Buffers.ReadOnlySequence<byte> data)>;
+//using IRSocketStream = System.IObserver<(System.Buffers.ReadOnlySequence<byte> metadata, System.Buffers.ReadOnlySequence<byte> data)>;
 
 namespace RSocket
 {
@@ -30,19 +30,20 @@ namespace RSocket
 		{
 			private readonly RSocketClient Client;
 			public ForStrings(RSocketClient client) { Client = client; }
-			public Task<string> RequestResponse(string data, string metadata = default) => Client.RequestResponse(value => Encoding.UTF8.GetString(value.data.ToArray()), new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes(data)), metadata == default ? default : new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes(metadata)));
+			public Task<string> RequestResponse(string data, string metadata = default) 
+                => Client.RequestResponse(value => Encoding.UTF8.GetString(value.Data.ToArray()), 
+                    new RSocketFrame(new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes(metadata)), new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes(data))));
 			public IAsyncEnumerable<string> RequestStream(string data, string metadata = default)
 			{
 				return Client.RequestStream(value =>
 				{
-					return Encoding.UTF8.GetString(value.data.ToArray());
-				}, new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes(data)), metadata == default ? default : new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes(metadata)));
+					return Encoding.UTF8.GetString(value.Data.ToArray());
+				}, new RSocketFrame(new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes(metadata)), new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes(data))));
 			}
 
-			public IAsyncEnumerable<string> RequestChannel(IAsyncEnumerable<string> inputs, string data = default, string metadata = default) =>
-				Client.RequestChannel(inputs, input => new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes(input)), result => Encoding.UTF8.GetString(result.data.ToArray()),
-					data == default ? default : new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes(data)),
-					metadata == default ? default : new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes(metadata)));
+            public IAsyncEnumerable<string> RequestChannel(IAsyncEnumerable<string> inputs, string data = default, string metadata = default) =>
+                Client.RequestChannel(inputs, input => new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes(input)), result => Encoding.UTF8.GetString(result.Data.ToArray()),
+                    new RSocketFrame(new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes(metadata)), new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes(data))));
 		}
 	}
 }

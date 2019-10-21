@@ -30,11 +30,7 @@ namespace RSocket
 
         public async IAsyncEnumerable<IRSocketServerTransport> AcceptAsync([EnumeratorCancellation]CancellationToken cancel = default)
         {
-            var dns = await Dns.GetHostEntryAsync(Url.Host);
-            if (dns.AddressList.Length == 0)
-                throw new InvalidOperationException($"Unable to resolve address.");
-
-            _endpoint = new IPEndPoint(dns.AddressList[0], Url.Port);
+            _endpoint = new IPEndPoint(IPAddress.Any, Url.Port);
 
             _listener = new Socket(_endpoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
             _listener.Bind(_endpoint);

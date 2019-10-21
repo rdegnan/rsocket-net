@@ -13,119 +13,38 @@ using System.Buffers;
 namespace RSocket.Transports
 {
 	//TODO Readd transport logging - worth it during debugging.
-	public class SocketTransport : IRSocketTransport
+	public abstract class SocketTransport
 	{
-		private IPEndPoint Endpoint;
-		private Socket Socket;
-
-		internal Task Running { get; private set; } = Task.CompletedTask;
+		//internal Task Running { get; private set; } = Task.CompletedTask;
 		//private CancellationTokenSource Cancellation;
+
 #pragma warning disable CS0649
 		private volatile bool Aborted;      //TODO Implement cooperative cancellation (and remove warning suppression)
 #pragma warning restore CS0649
 
-		public Uri Url { get; private set; }
 		private LoggerFactory Logger;
 
-		IDuplexPipe Front, Back;
-		public PipeReader Input => Front.Input;
+		protected IDuplexPipe Front, Back;
+		
+        public PipeReader Input => Front.Input;
 		public PipeWriter Output => Front.Output;
 
-		public SocketTransport(string url, PipeOptions outputoptions = default, PipeOptions inputoptions = default) : this(new Uri(url), outputoptions, inputoptions) { }
-		public SocketTransport(Uri url, PipeOptions outputoptions = default, PipeOptions inputoptions = default, WebSocketOptions options = default)
+        public SocketTransport(PipeOptions outputOptions = null, PipeOptions inputOptions = null)
+        {
+            (Front, Back) = DuplexPipe.CreatePair(outputOptions, inputOptions);
+        }
+
+        public abstract Task StartAsync(CancellationToken cancel = default);
+
+        public Task StopAsync() => Task.CompletedTask;
+
+		protected async Task ProcessSocketAsync(Socket socket)
 		{
-			Url = url;
-			if (string.Compare(url.Scheme, "TCP", true) != 0) { throw new ArgumentException("Only TCP connections are supported.", nameof(Url)); }
-			if (url.Port == -1) { throw new ArgumentException("TCP Port must be specified.", nameof(Url)); }
-
-			//Options = options ?? WebSocketsTransport.DefaultWebSocketOptions;
-			Logger = new Microsoft.Extensions.Logging.LoggerFactory(new[] { new Microsoft.Extensions.Logging.Debug.DebugLoggerProvider() });
-			(Front, Back) = DuplexPipe.CreatePair(outputoptions, inputoptions);
-		}
-
-		public async Task StartAsync(CancellationToken cancel = default)
-		{
-			var dns = await Dns.GetHostEntryAsync(Url.Host);
-			if (dns.AddressList.Length == 0) { throw new InvalidOperationException($"Unable to resolve address."); }
-			Endpoint = new IPEndPoint(dns.AddressList[0], Url.Port);
-
-			Socket = new Socket(Endpoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-			Socket.Connect(dns.AddressList, Url.Port);  //TODO Would like this to be async... Why so serious???
-
-			Running = ProcessSocketAsync(Socket);
-		}
-
-		public Task StopAsync() => Task.CompletedTask;		//TODO More graceful shutdown
-
-		private async Task ProcessSocketAsync(Socket socket)
-		{
-			// Begin sending and receiving. Receiving must be started first because ExecuteAsync enables SendAsync.
 			var receiving = StartReceiving(socket);
 			var sending = StartSending(socket);
 
-			var trigger = await Task.WhenAny(receiving, sending);
-
-			//if (trigger == receiving)
-			//{
-			//	Log.WaitingForSend(_logger);
-
-			//	// We're waiting for the application to finish and there are 2 things it could be doing
-			//	// 1. Waiting for application data
-			//	// 2. Waiting for a websocket send to complete
-
-			//	// Cancel the application so that ReadAsync yields
-			//	_application.Input.CancelPendingRead();
-
-			//	using (var delayCts = new CancellationTokenSource())
-			//	{
-			//		var resultTask = await Task.WhenAny(sending, Task.Delay(_options.CloseTimeout, delayCts.Token));
-
-			//		if (resultTask != sending)
-			//		{
-			//			// We timed out so now we're in ungraceful shutdown mode
-			//			Log.CloseTimedOut(_logger);
-
-			//			// Abort the websocket if we're stuck in a pending send to the client
-			//			_aborted = true;
-
-			//			socket.Abort();
-			//		}
-			//		else
-			//		{
-			//			delayCts.Cancel();
-			//		}
-			//	}
-			//}
-			//else
-			//{
-			//	Log.WaitingForClose(_logger);
-
-			//	// We're waiting on the websocket to close and there are 2 things it could be doing
-			//	// 1. Waiting for websocket data
-			//	// 2. Waiting on a flush to complete (backpressure being applied)
-
-			//	using (var delayCts = new CancellationTokenSource())
-			//	{
-			//		var resultTask = await Task.WhenAny(receiving, Task.Delay(_options.CloseTimeout, delayCts.Token));
-
-			//		if (resultTask != receiving)
-			//		{
-			//			// Abort the websocket if we're stuck in a pending receive from the client
-			//			_aborted = true;
-
-			//			socket.Abort();
-
-			//			// Cancel any pending flush so that we can quit
-			//			_application.Output.CancelPendingFlush();
-			//		}
-			//		else
-			//		{
-			//			delayCts.Cancel();
-			//		}
-			//	}
-			//}
+			await Task.WhenAny(receiving, sending);
 		}
-
 
 		private async Task StartReceiving(Socket socket)
 		{
@@ -167,7 +86,6 @@ namespace RSocket.Transports
 			}
 			finally { Back.Output.Complete(); }
 		}
-
 
 		private async Task StartSending(Socket socket)
 		{
@@ -251,7 +169,7 @@ namespace System.Net.Sockets
 		static async ValueTask<int> SendMultiSegmentAsync(Socket socket, ReadOnlySequence<byte> buffer, SocketFlags socketFlags, CancellationToken cancellationToken = default)
 		{
 #if NETSTANDARD2_1
-			var position = buffer.Start;
+            var position = buffer.Start;
 			buffer.TryGet(ref position, out var prevSegment);
 			while (buffer.TryGet(ref position, out var segment))
 			{

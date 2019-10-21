@@ -20,12 +20,12 @@ namespace RSocket
 	/// <summary>
 	/// A Pipeline Transport for a serving RSocket.
 	/// </summary>
-	public interface IRSocketServerTransport
+	public interface IRSocketServerTransport : IRSocketTransport
 	{
-		PipeReader Input { get; }
-		PipeWriter Output { get; }
+		new PipeReader Input { get; }
+		new PipeWriter Output { get; }
 
-		Task StartAsync(CancellationToken cancel = default);
-		Task StopAsync();
+		new Task StartAsync(CancellationToken cancel = default);
+		new Task StopAsync();
 	}
 }

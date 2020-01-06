@@ -238,9 +238,9 @@ namespace RSocket.Transports
                 {
                     while (!token.IsCancellationRequested)
                     {
-#if NETCOREAPP3_0
-						// Do a 0 byte read so that idle connections don't allocate a buffer when waiting for a read
-						var result = await socket.ReceiveAsync(Memory<byte>.Empty, token);
+#if NETSTANDARD2_1
+                        // Do a 0 byte read so that idle connections don't allocate a buffer when waiting for a read
+                        var result = await socket.ReceiveAsync(Memory<byte>.Empty, token);
 
 						if (result.MessageType == WebSocketMessageType.Close)
 						{
@@ -249,8 +249,8 @@ namespace RSocket.Transports
 #endif
                         var memory = _application.Output.GetMemory(out var memoryframe);        //RSOCKET Framing
 
-#if NETCOREAPP3_0
-	                    var receiveResult = await socket.ReceiveAsync(memory, token);
+#if NETSTANDARD2_1
+                        var receiveResult = await socket.ReceiveAsync(memory, token);
 #else
                         var isArray = MemoryMarshal.TryGetArray<byte>(memory, out var arraySegment);
                         Debug.Assert(isArray);
@@ -563,7 +563,7 @@ namespace System.Net.WebSockets
     {
         public static ValueTask SendAsync(this WebSocket webSocket, ReadOnlySequence<byte> buffer, WebSocketMessageType webSocketMessageType, CancellationToken cancellationToken = default)
         {
-#if NETCOREAPP3_0
+#if NETSTANDARD2_1
             if (buffer.IsSingleSegment)
             {
                 return webSocket.SendAsync(buffer.First, webSocketMessageType, endOfMessage: true, cancellationToken);
@@ -594,7 +594,7 @@ namespace System.Net.WebSockets
             buffer.TryGet(ref position, out var prevSegment);
             while (buffer.TryGet(ref position, out var segment))
             {
-#if NETCOREAPP3_0
+#if NETSTANDARD2_1
                 await webSocket.SendAsync(prevSegment, webSocketMessageType, endOfMessage: false, cancellationToken);
 #else
                 var isArray = MemoryMarshal.TryGetArray(prevSegment, out var arraySegment);
@@ -605,7 +605,7 @@ namespace System.Net.WebSockets
             }
 
             // End of message frame
-#if NETCOREAPP3_0
+#if NETSTANDARD2_1
             await webSocket.SendAsync(prevSegment, webSocketMessageType, endOfMessage: true, cancellationToken);
 #else
             var isArrayEnd = MemoryMarshal.TryGetArray(prevSegment, out var arraySegmentEnd);

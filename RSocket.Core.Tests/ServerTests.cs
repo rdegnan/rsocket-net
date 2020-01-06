@@ -28,7 +28,7 @@ namespace RSocket.Tests
 		[TestMethod]
 		public async Task ServerRequestResponseTest()
 		{
-			Server.Responder = async request => { await Task.CompletedTask; return (request.Data, request.Metadata); };
+			Server.Responder = async request => { await Task.CompletedTask; return request; };
 			var response = await StringClient.RequestResponse("TEST DATA", "METADATA?_____");
 			Assert.AreEqual("TEST DATA", response, "Response should round trip.");
 		}
@@ -36,9 +36,9 @@ namespace RSocket.Tests
 		[TestMethod]
 		public async Task ServerRequestStreamTest()
 		{
-            Server.Streamer = ((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request) =>
+            Server.Streamer = request =>
                 AsyncEnumerable.Range(0, 3)
-                    .Select(i => (request.Data, request.Metadata));
+                    .Select(i => request);
 
 			var (data, metadata) = ("TEST DATA", "METADATA?_____");
 			var list = await StringClient.RequestStream(data, metadata).ToListAsync();
@@ -52,9 +52,9 @@ namespace RSocket.Tests
 			var count = 20;
 			Server.Stream(request => (Data: request.Data.ToArray(), Metadata: request.Metadata.ToArray()),
 				request => from index in AsyncEnumerable.Range(0, count) select (Data: request.Data.Skip(index).Take(1), Metadata: request.Metadata.Skip(index).Take(1)),
-				result => (
-					new ReadOnlySequence<byte>(result.Data.ToArray()),
-					new ReadOnlySequence<byte>(result.Metadata.ToArray()))
+				result => new RSocketFrame(
+					data: new ReadOnlySequence<byte>(result.Data.ToArray()),
+					metadata: new ReadOnlySequence<byte>(result.Metadata.ToArray()))
 				);
 			//TODO Split into separate test - this is a good pattern for some things.
             //Server.Streamer = ((ReadOnlySequence<byte> Data, ReadOnlySequence<byte> Metadata) request) =>
@@ -64,7 +64,7 @@ namespace RSocket.Tests
             //            new ReadOnlySequence<byte>(request.Metadata.ToArray().Skip(i).Take(1).ToArray())));
 
 			var (requestData, requestMetadata) = (Enumerable.Range(1, count).Select(i => (byte)i).ToArray(), Enumerable.Range(100, count).Select(i => (byte)i).ToArray());
-			var list = await Client.RequestStream(result => (Data: result.data.ToArray(), Metadata: result.metadata.ToArray()), new ReadOnlySequence<byte>(requestData), new ReadOnlySequence<byte>(requestMetadata)).ToListAsync();
+			var list = await Client.RequestStream(result => (Data: result.Data.ToArray(), Metadata: result.Metadata.ToArray()), new RSocketFrame(data: new ReadOnlySequence<byte>(requestData), metadata: new ReadOnlySequence<byte>(requestMetadata))).ToListAsync();
 			Assert.AreEqual(count, list.Count, "Stream contents missing.");
 
 			for (int i = 0; i < list.Count; i++)

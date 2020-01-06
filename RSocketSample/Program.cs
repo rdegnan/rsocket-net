@@ -31,8 +31,8 @@ namespace RSocketSample
 
 			//Make a Raw binary call just to show how it's done.
 			var stream = client.RequestStream(
-				resultmapper: result => (Data: ProtobufNetSerializer.Deserialize<Person>(result.data), Metadata: ProtobufNetSerializer.Deserialize<Person>(result.metadata)),
-				data: ProtobufNetSerializer.Serialize(persondata), metadata: ProtobufNetSerializer.Serialize(personmetadata));
+				resultmapper: result => (Data: ProtobufNetSerializer.Deserialize<Person>(result.Data), Metadata: ProtobufNetSerializer.Deserialize<Person>(result.Metadata)),
+				frame: new RSocketFrame(data: ProtobufNetSerializer.Serialize(persondata), metadata: ProtobufNetSerializer.Serialize(personmetadata)));
 
 			await stream.ForEachAsync(persons => Console.WriteLine($"RawDemo.OnNext===>[{persons.Metadata}]{persons.Data}"));
 

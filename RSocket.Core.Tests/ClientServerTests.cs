@@ -5,7 +5,7 @@ using System.Text;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using RSocket.Transports;
 
-using IRSocketStream = System.IObserver<(System.Buffers.ReadOnlySequence<byte> metadata, System.Buffers.ReadOnlySequence<byte> data)>;
+using IRSocketStream = System.IObserver<RSocket.RSocketFrame>;
 
 namespace RSocket.Tests
 {
@@ -28,7 +28,7 @@ namespace RSocket.Tests
 			[TestMethod]
 			public void ServerBasicTest()
 			{
-				Socket.RequestStream(Stream, new Sample());
+				Socket.RequestStream(Stream, new RSocketFrame(data: new Sample()));
 				Assert.AreNotEqual(0, Server.All.Count, "Should have at least one message");
 			}
 
@@ -48,7 +48,7 @@ namespace RSocket.Tests
 			[TestMethod]
 			public void RequestStreamTest()
 			{
-				Socket.RequestStream(Stream, new Sample(), initial: 5);
+				Socket.RequestStream(Stream, new RSocketFrame(data: new Sample()), initial: 5);
 				Assert.AreNotEqual(5, Server.RequestStreams.Single().InitialRequest, "InitialRequest partiy.");
 			}
 
